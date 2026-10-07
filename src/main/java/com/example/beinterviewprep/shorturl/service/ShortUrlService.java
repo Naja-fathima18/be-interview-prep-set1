@@ -1,5 +1,7 @@
 package com.example.beinterviewprep.shorturl.service;
 
+import com.example.beinterviewprep.common.error.ResourceNotFoundException;
+import com.example.beinterviewprep.common.error.ShortUrlExpiredException;
 import com.example.beinterviewprep.shorturl.domain.ShortUrl;
 import com.example.beinterviewprep.shorturl.persistence.ShortUrlRepository;
 import java.time.Clock;
@@ -28,6 +30,22 @@ public class ShortUrlService {
             new ShortUrl(unusedCode(), originalUrl, Instant.now(clock), expiresAt));
     log.info("Created short URL {}", saved.getCode());
     return saved;
+  }
+
+  @Transactional
+  public String visit(String code) {
+    ShortUrl shortUrl = findByCode(code);
+    if (shortUrl.isExpiredAt(Instant.now(clock))) {
+      throw new ShortUrlExpiredException(code);
+    }
+    shortUrlRepository.incrementVisitCount(code);
+    return shortUrl.getOriginalUrl();
+  }
+
+  private ShortUrl findByCode(String code) {
+    return shortUrlRepository
+        .findByCode(code)
+        .orElseThrow(() -> new ResourceNotFoundException("Short URL", code));
   }
 
   private String unusedCode() {
