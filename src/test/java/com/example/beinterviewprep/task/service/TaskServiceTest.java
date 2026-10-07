@@ -3,6 +3,7 @@ package com.example.beinterviewprep.task.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -108,6 +109,24 @@ class TaskServiceTest {
     assertThatThrownBy(
             () -> taskService.update(42L, new TaskCommand("New", null, TaskStatus.DONE, null)))
         .isInstanceOf(ResourceNotFoundException.class);
+  }
+
+  @Test
+  void deletesExistingTask() {
+    Task existing = new Task("Old", null, TaskStatus.TODO, null, NOW);
+    when(taskRepository.findById(7L)).thenReturn(Optional.of(existing));
+
+    taskService.delete(7L);
+
+    verify(taskRepository).delete(existing);
+  }
+
+  @Test
+  void throwsNotFoundWhenDeletingMissingTask() {
+    when(taskRepository.findById(42L)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> taskService.delete(42L)).isInstanceOf(ResourceNotFoundException.class);
+    verify(taskRepository, never()).delete(any(Task.class));
   }
 
   @Test

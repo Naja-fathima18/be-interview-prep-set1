@@ -51,6 +51,12 @@ public class TaskService {
     return task;
   }
 
+  @Transactional
+  public void delete(Long id) {
+    taskRepository.delete(get(id));
+    log.info("Deleted task {}", id);
+  }
+
   public Task get(Long id) {
     return taskRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Task", id));
   }
