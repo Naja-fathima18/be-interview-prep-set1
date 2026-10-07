@@ -42,6 +42,10 @@ public class ShortUrlService {
     return shortUrl.getOriginalUrl();
   }
 
+  public ShortUrl get(String code) {
+    return findByCode(code);
+  }
+
   private ShortUrl findByCode(String code) {
     return shortUrlRepository
         .findByCode(code)

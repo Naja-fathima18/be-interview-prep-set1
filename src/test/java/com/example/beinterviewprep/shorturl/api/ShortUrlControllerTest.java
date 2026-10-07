@@ -5,12 +5,14 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.example.beinterviewprep.common.error.ResourceNotFoundException;
 import com.example.beinterviewprep.shorturl.domain.ShortUrl;
 import com.example.beinterviewprep.shorturl.service.ShortUrlProperties;
 import com.example.beinterviewprep.shorturl.service.ShortUrlService;
@@ -24,6 +26,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
@@ -153,6 +156,36 @@ class ShortUrlControllerTest {
         .perform(shorten("{\"url\": \"https://example.com/a\"}"))
         .andExpect(status().isInternalServerError())
         .andExpect(jsonPath("$.detail").value("An unexpected error occurred"));
+  }
+
+  @Test
+  void returnsStatsForCode() throws Exception {
+    ShortUrl shortUrl =
+        new ShortUrl(
+            "abc1234", "https://example.com/a", CREATED_AT, Instant.parse("2026-12-31T23:59:59Z"));
+    ReflectionTestUtils.setField(shortUrl, "visitCount", 42L);
+    when(shortUrlService.get("abc1234")).thenReturn(shortUrl);
+
+    mockMvc
+        .perform(get("/api/short-urls/abc1234/stats"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.code").value("abc1234"))
+        .andExpect(jsonPath("$.originalUrl").value("https://example.com/a"))
+        .andExpect(jsonPath("$.visitCount").value(42))
+        .andExpect(jsonPath("$.createdAt").value("2026-10-07T09:00:00Z"))
+        .andExpect(jsonPath("$.expiresAt").value("2026-12-31T23:59:59Z"));
+  }
+
+  @Test
+  void returnsNotFoundForStatsOfUnknownCode() throws Exception {
+    when(shortUrlService.get("missing"))
+        .thenThrow(new ResourceNotFoundException("Short URL", "missing"));
+
+    mockMvc
+        .perform(get("/api/short-urls/missing/stats"))
+        .andExpect(status().isNotFound())
+        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+        .andExpect(jsonPath("$.detail").value("Short URL with id missing was not found"));
   }
 
   private static MockHttpServletRequestBuilder shorten(String body) {

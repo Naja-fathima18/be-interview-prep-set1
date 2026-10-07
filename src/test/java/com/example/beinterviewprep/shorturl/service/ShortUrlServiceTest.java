@@ -137,6 +137,23 @@ class ShortUrlServiceTest {
     verify(shortUrlRepository, never()).incrementVisitCount(anyString());
   }
 
+  @Test
+  void returnsStatsEvenAfterExpiry() {
+    ShortUrl expired = shortUrlExpiringAt(NOW.minusSeconds(1));
+    when(shortUrlRepository.findByCode("abc1234")).thenReturn(Optional.of(expired));
+
+    assertThat(shortUrlService.get("abc1234")).isSameAs(expired);
+  }
+
+  @Test
+  void getThrowsNotFoundForUnknownCode() {
+    when(shortUrlRepository.findByCode("missing")).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> shortUrlService.get("missing"))
+        .isInstanceOf(ResourceNotFoundException.class)
+        .hasMessage("Short URL with id missing was not found");
+  }
+
   private static ShortUrl shortUrlExpiringAt(Instant expiresAt) {
     return new ShortUrl("abc1234", "https://example.com/a", NOW.minusSeconds(60), expiresAt);
   }

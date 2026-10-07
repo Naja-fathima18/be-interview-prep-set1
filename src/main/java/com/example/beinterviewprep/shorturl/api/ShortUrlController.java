@@ -7,6 +7,8 @@ import jakarta.validation.Valid;
 import java.net.URI;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -32,5 +34,10 @@ public class ShortUrlController {
             .toUri();
     return ResponseEntity.created(location)
         .body(ShortUrlResponse.from(shortUrl, properties.shortUrlFor(shortUrl.getCode())));
+  }
+
+  @GetMapping("/{code}/stats")
+  public ShortUrlStatsResponse stats(@PathVariable String code) {
+    return ShortUrlStatsResponse.from(shortUrlService.get(code));
   }
 }
