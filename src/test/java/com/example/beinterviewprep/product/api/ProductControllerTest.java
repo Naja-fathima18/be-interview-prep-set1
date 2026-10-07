@@ -17,7 +17,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.example.beinterviewprep.common.config.ClockConfig;
 import com.example.beinterviewprep.common.error.ResourceNotFoundException;
+import com.example.beinterviewprep.common.security.SecurityConfig;
 import com.example.beinterviewprep.product.domain.Category;
 import com.example.beinterviewprep.product.service.ProductCommand;
 import com.example.beinterviewprep.product.service.ProductFilter;
@@ -30,15 +32,19 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(ProductController.class)
+@Import({SecurityConfig.class, ClockConfig.class})
+@WithMockUser
 class ProductControllerTest {
 
   private static final Instant CREATED_AT = Instant.parse("2026-10-07T09:00:00Z");

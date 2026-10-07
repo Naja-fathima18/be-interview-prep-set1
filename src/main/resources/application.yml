@@ -15,6 +15,20 @@ spring:
         max-page-size: 100
   flyway:
     locations: classpath:db/migration
+
+app:
+  short-url:
+    base-url: ${SHORT_URL_BASE_URL:http://localhost:8080}
+    code-length: 7
+  security:
+    jwt:
+      secret: ${JWT_SECRET}
+      ttl: ${JWT_TTL:PT15M}
+      issuer: be-interview-prep
+    admin:
+      email: ${ADMIN_EMAIL:}
+      password: ${ADMIN_PASSWORD:}
+
 catalog:
   seed:
     enabled: true
