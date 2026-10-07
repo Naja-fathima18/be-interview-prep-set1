@@ -1,6 +1,9 @@
 package com.example.beinterviewprep.user.api;
 
 import static com.example.beinterviewprep.user.api.AuthControllerTest.user;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
@@ -20,12 +23,19 @@ import com.example.beinterviewprep.user.service.UserService;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -108,6 +118,67 @@ class UserControllerTest {
         .perform(get("/api/users/me").with(jwt().jwt(token -> token.subject("7"))))
         .andExpect(status().isNotFound())
         .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON));
+  }
+
+  @Test
+  void forbidsRegularUserFromListingAllUsers() throws Exception {
+    mockMvc
+        .perform(get("/api/users").with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
+        .andExpect(status().isForbidden())
+        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+        .andExpect(jsonPath("$.status").value(403))
+        .andExpect(jsonPath("$.title").value("Forbidden"))
+        .andExpect(jsonPath("$.detail").value("You do not have permission to access this resource"))
+        .andExpect(jsonPath("$.instance").value("/api/users"));
+    verifyNoInteractions(userService);
+  }
+
+  @Test
+  void forbidsRegularUserWithSignedTokenFromListingAllUsers() throws Exception {
+    String token = tokenIssuedAt(Instant.now(), 7L, Role.USER);
+
+    mockMvc
+        .perform(get("/api/users").header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+        .andExpect(status().isForbidden())
+        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON));
+    verifyNoInteractions(userService);
+  }
+
+  @Test
+  void letsAdminListAllUsersOldestFirst() throws Exception {
+    when(userService.list(any(Pageable.class)))
+        .thenReturn(
+            new PageImpl<>(
+                List.of(
+                    user(1L, "admin@example.com", Role.ADMIN),
+                    user(2L, "alice@example.com", Role.USER)),
+                PageRequest.of(0, 20),
+                2));
+    String token = tokenIssuedAt(Instant.now(), 1L, Role.ADMIN);
+
+    mockMvc
+        .perform(get("/api/users").header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.content.length()").value(2))
+        .andExpect(jsonPath("$.content[0].role").value("ADMIN"))
+        .andExpect(jsonPath("$.content[1].email").value("alice@example.com"))
+        .andExpect(jsonPath("$.content[1].passwordHash").doesNotExist())
+        .andExpect(jsonPath("$.totalElements").value(2))
+        .andExpect(jsonPath("$.size").value(20));
+
+    ArgumentCaptor<Pageable> pageable = ArgumentCaptor.forClass(Pageable.class);
+    verify(userService).list(pageable.capture());
+    assertThat(pageable.getValue().getSort().getOrderFor("createdAt").getDirection())
+        .isEqualTo(Sort.Direction.ASC);
+  }
+
+  @Test
+  void rejectsUnauthenticatedUserListing() throws Exception {
+    mockMvc
+        .perform(get("/api/users"))
+        .andExpect(status().isUnauthorized())
+        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON));
+    verifyNoInteractions(userService);
   }
 
   private String tokenIssuedAt(Instant issuedAt, Long userId) {

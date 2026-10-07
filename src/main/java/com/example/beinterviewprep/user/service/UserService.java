@@ -10,6 +10,8 @@ import java.time.Instant;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +35,10 @@ public class UserService {
 
   public User get(Long id) {
     return userRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("User", id));
+  }
+
+  public Page<User> list(Pageable pageable) {
+    return userRepository.findAll(pageable);
   }
 
   private User create(String email, String password, Role role) {

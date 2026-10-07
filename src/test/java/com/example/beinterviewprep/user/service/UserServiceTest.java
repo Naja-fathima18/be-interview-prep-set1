@@ -22,6 +22,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 @ExtendWith(MockitoExtension.class)
@@ -89,5 +92,14 @@ class UserServiceTest {
     assertThatThrownBy(() -> userService.get(5L))
         .isInstanceOf(ResourceNotFoundException.class)
         .hasMessage("User with id 5 was not found");
+  }
+
+  @Test
+  void listsUsersPageByPage() {
+    Pageable pageable = PageRequest.of(1, 10);
+    when(userRepository.findAll(pageable)).thenReturn(Page.empty(pageable));
+
+    assertThat(userService.list(pageable)).isEmpty();
+    verify(userRepository).findAll(pageable);
   }
 }
