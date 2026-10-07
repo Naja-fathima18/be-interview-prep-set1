@@ -15,6 +15,8 @@ import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -29,6 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class ProductService {
 
+  public static final String PRODUCTS_CACHE = "products";
   private static final String TIE_BREAKER = "id";
 
   private final ProductRepository productRepository;
@@ -40,6 +43,7 @@ public class ProductService {
         .map(ProductView::from);
   }
 
+  @Cacheable(cacheNames = PRODUCTS_CACHE, key = "#id", sync = true)
   public ProductView get(Long id) {
     return ProductView.from(findProduct(id));
   }
@@ -60,6 +64,7 @@ public class ProductService {
   }
 
   @Transactional
+  @CacheEvict(cacheNames = PRODUCTS_CACHE, key = "#id")
   public ProductView update(Long id, ProductCommand command) {
     Product product = findProduct(id);
     product.update(
@@ -69,6 +74,7 @@ public class ProductService {
   }
 
   @Transactional
+  @CacheEvict(cacheNames = PRODUCTS_CACHE, key = "#id")
   public void delete(Long id) {
     productRepository.delete(findProduct(id));
     log.info("Deleted product {}", id);
