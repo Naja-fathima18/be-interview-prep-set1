@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.util.SplittableRandom;
 import org.junit.jupiter.api.Test;
 
 class ShortCodeGeneratorTest {
@@ -24,7 +25,8 @@ class ShortCodeGeneratorTest {
 
   @Test
   void generatesDistinctCodes() {
-    ShortCodeGenerator generator = generatorWithLength(7);
+    ShortCodeGenerator generator =
+        new ShortCodeGenerator(propertiesWithLength(7), new SplittableRandom(42));
     Set<String> codes = new HashSet<>();
 
     for (int i = 0; i < 10_000; i++) {
@@ -34,7 +36,29 @@ class ShortCodeGeneratorTest {
     assertThat(codes).hasSize(10_000);
   }
 
+  @Test
+  void drawsEveryCharacterFromTheRandomSource() {
+    ShortCodeGenerator generator =
+        new ShortCodeGenerator(propertiesWithLength(3), new SplittableRandom(7));
+    SplittableRandom sameSeed = new SplittableRandom(7);
+    String expected =
+        ""
+            + charAt(sameSeed.nextInt(62))
+            + charAt(sameSeed.nextInt(62))
+            + charAt(sameSeed.nextInt(62));
+
+    assertThat(generator.generate()).isEqualTo(expected);
+  }
+
+  private static char charAt(int index) {
+    return ShortCodeGenerator.ALPHABET.charAt(index);
+  }
+
   private static ShortCodeGenerator generatorWithLength(int length) {
-    return new ShortCodeGenerator(new ShortUrlProperties("http://localhost:8080", length));
+    return new ShortCodeGenerator(propertiesWithLength(length));
+  }
+
+  private static ShortUrlProperties propertiesWithLength(int length) {
+    return new ShortUrlProperties("http://localhost:8080", length);
   }
 }

@@ -1,6 +1,8 @@
 package com.example.beinterviewprep.shorturl.service;
 
 import java.security.SecureRandom;
+import java.util.random.RandomGenerator;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -8,11 +10,17 @@ public class ShortCodeGenerator {
 
   static final String ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
-  private final SecureRandom random = new SecureRandom();
+  private final RandomGenerator random;
   private final int length;
 
+  @Autowired
   public ShortCodeGenerator(ShortUrlProperties properties) {
+    this(properties, new SecureRandom());
+  }
+
+  ShortCodeGenerator(ShortUrlProperties properties, RandomGenerator random) {
     this.length = properties.codeLength();
+    this.random = random;
   }
 
   public String generate() {
