@@ -84,6 +84,33 @@ class TaskServiceTest {
   }
 
   @Test
+  void updatesAllEditableFieldsAndKeepsCreatedDate() {
+    Instant createdAt = Instant.parse("2026-10-01T08:00:00Z");
+    Task existing = new Task("Old", "Old description", TaskStatus.TODO, null, createdAt);
+    when(taskRepository.findById(7L)).thenReturn(Optional.of(existing));
+
+    Task updated =
+        taskService.update(
+            7L,
+            new TaskCommand("New", "New description", TaskStatus.DONE, LocalDate.of(2026, 12, 1)));
+
+    assertThat(updated.getTitle()).isEqualTo("New");
+    assertThat(updated.getDescription()).isEqualTo("New description");
+    assertThat(updated.getStatus()).isEqualTo(TaskStatus.DONE);
+    assertThat(updated.getDueDate()).isEqualTo(LocalDate.of(2026, 12, 1));
+    assertThat(updated.getCreatedAt()).isEqualTo(createdAt);
+  }
+
+  @Test
+  void throwsNotFoundWhenUpdatingMissingTask() {
+    when(taskRepository.findById(42L)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(
+            () -> taskService.update(42L, new TaskCommand("New", null, TaskStatus.DONE, null)))
+        .isInstanceOf(ResourceNotFoundException.class);
+  }
+
+  @Test
   void throwsNotFoundWhenTaskIsMissing() {
     when(taskRepository.findById(42L)).thenReturn(Optional.empty());
 

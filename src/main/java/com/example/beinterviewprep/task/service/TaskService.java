@@ -43,6 +43,14 @@ public class TaskService {
         : taskRepository.findAllByStatus(status, pageable);
   }
 
+  @Transactional
+  public Task update(Long id, TaskCommand command) {
+    Task task = get(id);
+    task.update(command.title(), command.description(), command.status(), command.dueDate());
+    log.info("Updated task {}", id);
+    return task;
+  }
+
   public Task get(Long id) {
     return taskRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Task", id));
   }

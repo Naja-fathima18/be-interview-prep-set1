@@ -14,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -49,5 +50,10 @@ public class TaskController {
   @GetMapping("/{id}")
   public TaskResponse get(@PathVariable Long id) {
     return TaskResponse.from(taskService.get(id));
+  }
+
+  @PutMapping("/{id}")
+  public TaskResponse update(@PathVariable Long id, @Valid @RequestBody UpdateTaskRequest request) {
+    return TaskResponse.from(taskService.update(id, request.toCommand()));
   }
 }

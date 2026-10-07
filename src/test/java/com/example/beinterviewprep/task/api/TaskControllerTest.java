@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -232,6 +233,56 @@ class TaskControllerTest {
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.errors[0].field").value("sort"))
         .andExpect(jsonPath("$.errors[0].message").value("Unknown property 'colour'"));
+  }
+
+  @Test
+  void updatesTask() throws Exception {
+    LocalDate dueDate = LocalDate.now().plusDays(3);
+    when(taskService.update(eq(1L), any(TaskCommand.class)))
+        .thenReturn(task(1L, "Updated", TaskStatus.IN_PROGRESS, dueDate));
+
+    mockMvc
+        .perform(
+            put("/api/tasks/1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {"title": "Updated", "status": "IN_PROGRESS", "dueDate": "%s"}
+                    """
+                        .formatted(dueDate)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.title").value("Updated"))
+        .andExpect(jsonPath("$.status").value("IN_PROGRESS"));
+  }
+
+  @Test
+  void rejectsUpdateWithoutStatusOrTitle() throws Exception {
+    mockMvc
+        .perform(
+            put("/api/tasks/1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"title\": \" \"}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.errors.length()").value(2))
+        .andExpect(jsonPath("$.errors[0].field").value("status"))
+        .andExpect(jsonPath("$.errors[0].message").value("Status is required"))
+        .andExpect(jsonPath("$.errors[1].field").value("title"))
+        .andExpect(jsonPath("$.errors[1].message").value("Title is required"));
+    verifyNoInteractions(taskService);
+  }
+
+  @Test
+  void returnsNotFoundWhenUpdatingUnknownTask() throws Exception {
+    when(taskService.update(eq(99L), any(TaskCommand.class)))
+        .thenThrow(new ResourceNotFoundException("Task", 99L));
+
+    mockMvc
+        .perform(
+            put("/api/tasks/99")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"title\": \"Updated\", \"status\": \"DONE\"}"))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.detail").value("Task with id 99 was not found"));
   }
 
   static Task task(Long id, String title, TaskStatus status, LocalDate dueDate) {
