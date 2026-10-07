@@ -1,8 +1,10 @@
 package com.example.beinterviewprep.task.api;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -52,6 +54,76 @@ class TaskControllerTest {
         .andExpect(jsonPath("$.status").value("TODO"))
         .andExpect(jsonPath("$.dueDate").value(dueDate.toString()))
         .andExpect(jsonPath("$.createdAt").value("2026-10-07T09:00:00Z"));
+  }
+
+  @Test
+  void rejectsInvalidTaskWithFieldLevelMessages() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/tasks")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {"title": "%s", "dueDate": "%s"}
+                    """
+                        .formatted("x".repeat(101), LocalDate.now().minusDays(1))))
+        .andExpect(status().isBadRequest())
+        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+        .andExpect(jsonPath("$.status").value(400))
+        .andExpect(jsonPath("$.title").value("Invalid request"))
+        .andExpect(jsonPath("$.detail").value("Request validation failed"))
+        .andExpect(jsonPath("$.errors.length()").value(2))
+        .andExpect(jsonPath("$.errors[0].field").value("dueDate"))
+        .andExpect(jsonPath("$.errors[0].message").value("Due date cannot be in the past"))
+        .andExpect(jsonPath("$.errors[1].field").value("title"))
+        .andExpect(jsonPath("$.errors[1].message").value("Title must be at most 100 characters"));
+    verifyNoInteractions(taskService);
+  }
+
+  @Test
+  void rejectsMissingTitle() throws Exception {
+    mockMvc
+        .perform(post("/api/tasks").contentType(MediaType.APPLICATION_JSON).content("{}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.errors[0].field").value("title"))
+        .andExpect(jsonPath("$.errors[0].message").value("Title is required"));
+  }
+
+  @Test
+  void rejectsUnknownStatusValue() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/tasks")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"title\": \"Write report\", \"status\": \"BLOCKED\"}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.errors[0].field").value("status"))
+        .andExpect(
+            jsonPath("$.errors[0].message")
+                .value("Invalid value 'BLOCKED'; must be one of [TODO, IN_PROGRESS, DONE]"));
+  }
+
+  @Test
+  void rejectsMalformedDueDate() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/tasks")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"title\": \"Write report\", \"dueDate\": \"31-10-2026\"}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.errors[0].field").value("dueDate"))
+        .andExpect(
+            jsonPath("$.errors[0].message")
+                .value("Invalid value '31-10-2026'; expected a date in yyyy-MM-dd format"));
+  }
+
+  @Test
+  void rejectsMalformedJson() throws Exception {
+    mockMvc
+        .perform(post("/api/tasks").contentType(MediaType.APPLICATION_JSON).content("{\"title\":"))
+        .andExpect(status().isBadRequest())
+        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+        .andExpect(jsonPath("$.detail").value("Malformed JSON request"));
   }
 
   static Task task(Long id, String title, TaskStatus status, LocalDate dueDate) {
