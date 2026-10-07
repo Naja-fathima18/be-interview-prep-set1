@@ -9,6 +9,8 @@ import java.time.Instant;
 import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,6 +35,12 @@ public class TaskService {
     Task saved = taskRepository.save(task);
     log.info("Created task {}", saved.getId());
     return saved;
+  }
+
+  public Page<Task> list(TaskStatus status, Pageable pageable) {
+    return status == null
+        ? taskRepository.findAll(pageable)
+        : taskRepository.findAllByStatus(status, pageable);
   }
 
   public Task get(Long id) {

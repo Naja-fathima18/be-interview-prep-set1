@@ -1,16 +1,22 @@
 package com.example.beinterviewprep.task.api;
 
+import com.example.beinterviewprep.common.api.PageResponse;
 import com.example.beinterviewprep.task.domain.Task;
+import com.example.beinterviewprep.task.domain.TaskStatus;
 import com.example.beinterviewprep.task.service.TaskService;
 import jakarta.validation.Valid;
 import java.net.URI;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -30,6 +36,14 @@ public class TaskController {
             .buildAndExpand(task.getId())
             .toUri();
     return ResponseEntity.created(location).body(TaskResponse.from(task));
+  }
+
+  @GetMapping
+  public PageResponse<TaskResponse> list(
+      @RequestParam(required = false) TaskStatus status,
+      @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
+          Pageable pageable) {
+    return PageResponse.from(taskService.list(status, pageable), TaskResponse::from);
   }
 
   @GetMapping("/{id}")

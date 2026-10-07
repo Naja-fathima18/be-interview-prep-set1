@@ -1,6 +1,10 @@
 package com.example.beinterviewprep.task.api;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -17,9 +21,17 @@ import com.example.beinterviewprep.task.service.TaskCommand;
 import com.example.beinterviewprep.task.service.TaskService;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.mapping.PropertyReferenceException;
+import org.springframework.data.util.TypeInformation;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -161,6 +173,65 @@ class TaskControllerTest {
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.errors[0].field").value("id"))
         .andExpect(jsonPath("$.errors[0].message").value("Invalid value 'abc'; expected a number"));
+  }
+
+  @Test
+  void listsTasksNewestFirstWithPageMetadata() throws Exception {
+    when(taskService.list(isNull(), any(Pageable.class)))
+        .thenReturn(
+            new PageImpl<>(
+                List.of(task(2L, "Second", TaskStatus.TODO, null)), PageRequest.of(0, 20), 1));
+
+    mockMvc
+        .perform(get("/api/tasks"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.content[0].id").value(2))
+        .andExpect(jsonPath("$.page").value(0))
+        .andExpect(jsonPath("$.size").value(20))
+        .andExpect(jsonPath("$.totalElements").value(1))
+        .andExpect(jsonPath("$.totalPages").value(1));
+
+    ArgumentCaptor<Pageable> pageable = ArgumentCaptor.forClass(Pageable.class);
+    verify(taskService).list(isNull(), pageable.capture());
+    assertThat(pageable.getValue().getSort().getOrderFor("createdAt").getDirection())
+        .isEqualTo(Sort.Direction.DESC);
+  }
+
+  @Test
+  void filtersTasksByStatus() throws Exception {
+    when(taskService.list(eq(TaskStatus.DONE), any(Pageable.class)))
+        .thenReturn(new PageImpl<>(List.of(task(3L, "Done", TaskStatus.DONE, null))));
+
+    mockMvc
+        .perform(get("/api/tasks").param("status", "DONE"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.content.length()").value(1))
+        .andExpect(jsonPath("$.content[0].status").value("DONE"));
+  }
+
+  @Test
+  void rejectsUnknownStatusFilter() throws Exception {
+    mockMvc
+        .perform(get("/api/tasks").param("status", "BLOCKED"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.errors[0].field").value("status"))
+        .andExpect(
+            jsonPath("$.errors[0].message")
+                .value("Invalid value 'BLOCKED'; must be one of [TODO, IN_PROGRESS, DONE]"));
+    verifyNoInteractions(taskService);
+  }
+
+  @Test
+  void rejectsUnknownSortProperty() throws Exception {
+    when(taskService.list(isNull(), any(Pageable.class)))
+        .thenThrow(
+            new PropertyReferenceException("colour", TypeInformation.of(Task.class), List.of()));
+
+    mockMvc
+        .perform(get("/api/tasks").param("sort", "colour"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.errors[0].field").value("sort"))
+        .andExpect(jsonPath("$.errors[0].message").value("Unknown property 'colour'"));
   }
 
   static Task task(Long id, String title, TaskStatus status, LocalDate dueDate) {

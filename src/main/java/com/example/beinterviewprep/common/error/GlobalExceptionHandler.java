@@ -8,6 +8,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.springframework.beans.TypeMismatchException;
+import org.springframework.data.mapping.PropertyReferenceException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -31,6 +32,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
     problem.setTitle("Resource not found");
     return problem;
+  }
+
+  @ExceptionHandler(PropertyReferenceException.class)
+  public ProblemDetail handleUnknownSortProperty(PropertyReferenceException ex) {
+    return validationProblem(
+        List.of(
+            new FieldViolation("sort", "Unknown property '%s'".formatted(ex.getPropertyName()))));
   }
 
   @Override
