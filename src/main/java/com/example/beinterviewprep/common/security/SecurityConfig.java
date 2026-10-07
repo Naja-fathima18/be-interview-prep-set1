@@ -18,6 +18,7 @@ import org.springframework.security.web.SecurityFilterChain;
 public class SecurityConfig {
 
   static final String SHORT_LINK_REDIRECT = "/{code:[A-Za-z0-9]{1,8}}";
+  static final String PRODUCTS = "/api/products";
 
   @Bean
   public SecurityFilterChain securityFilterChain(
@@ -44,6 +45,14 @@ public class SecurityConfig {
                     .permitAll()
                     .requestMatchers(HttpMethod.GET, SHORT_LINK_REDIRECT)
                     .permitAll()
+                    .requestMatchers(HttpMethod.GET, PRODUCTS, PRODUCTS + "/**")
+                    .permitAll()
+                    .requestMatchers(PRODUCTS, PRODUCTS + "/**")
+                    .hasRole("ADMIN")
+                    .requestMatchers("/actuator/health")
+                    .permitAll()
+                    .requestMatchers("/actuator/**")
+                    .hasRole("ADMIN")
                     .requestMatchers("/api/users")
                     .hasRole("ADMIN")
                     .anyRequest()

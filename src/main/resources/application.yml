@@ -17,6 +17,10 @@ spring:
     locations: classpath:db/migration
 
 app:
+  cache:
+    names: products
+    maximum-size: 10000
+    expire-after-write: PT10M
   short-url:
     base-url: ${SHORT_URL_BASE_URL:http://localhost:8080}
     code-length: 7
@@ -28,3 +32,14 @@ app:
     admin:
       email: ${ADMIN_EMAIL:}
       password: ${ADMIN_PASSWORD:}
+
+catalog:
+  seed:
+    enabled: true
+    count: 100
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,caches
