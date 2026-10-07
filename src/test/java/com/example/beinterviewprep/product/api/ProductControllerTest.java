@@ -1,16 +1,25 @@
 package com.example.beinterviewprep.product.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasItems;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.example.beinterviewprep.common.error.ResourceNotFoundException;
 import com.example.beinterviewprep.product.domain.Category;
+import com.example.beinterviewprep.product.service.ProductCommand;
 import com.example.beinterviewprep.product.service.ProductFilter;
 import com.example.beinterviewprep.product.service.ProductService;
 import com.example.beinterviewprep.product.service.ProductView;
@@ -33,6 +42,10 @@ import org.springframework.test.web.servlet.MockMvc;
 class ProductControllerTest {
 
   private static final Instant CREATED_AT = Instant.parse("2026-10-07T09:00:00Z");
+  private static final String VALID_BODY =
+      """
+      {"name": "Smart Speaker", "category": "ELECTRONICS", "price": 89.00, "stock": 3, "rating": 4.5}
+      """;
 
   @Autowired private MockMvc mockMvc;
 
@@ -139,6 +152,102 @@ class ProductControllerTest {
         .andExpect(jsonPath("$.errors[0].field").value("category"));
 
     verifyNoInteractions(productService);
+  }
+
+  @Test
+  void returnsProductById() throws Exception {
+    when(productService.get(7L)).thenReturn(view(7L));
+
+    mockMvc
+        .perform(get("/api/products/7"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id").value(7))
+        .andExpect(jsonPath("$.name").value("Smart Speaker"));
+  }
+
+  @Test
+  void returnsNotFoundProblemForUnknownProduct() throws Exception {
+    when(productService.get(99L)).thenThrow(new ResourceNotFoundException("Product", 99L));
+
+    mockMvc
+        .perform(get("/api/products/99"))
+        .andExpect(status().isNotFound())
+        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+        .andExpect(jsonPath("$.detail").value("Product with id 99 was not found"));
+  }
+
+  @Test
+  void createsProductAndReturnsLocation() throws Exception {
+    when(productService.create(any(ProductCommand.class))).thenReturn(view(7L));
+
+    mockMvc
+        .perform(post("/api/products").contentType(MediaType.APPLICATION_JSON).content(VALID_BODY))
+        .andExpect(status().isCreated())
+        .andExpect(header().string("Location", "http://localhost/api/products/7"))
+        .andExpect(jsonPath("$.id").value(7));
+
+    verify(productService)
+        .create(
+            new ProductCommand(
+                "Smart Speaker",
+                Category.ELECTRONICS,
+                new BigDecimal("89.00"),
+                3,
+                new BigDecimal("4.5")));
+  }
+
+  @Test
+  void rejectsInvalidProductWithFieldLevelMessages() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/products")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {"name": " ", "price": -1, "stock": -2, "rating": 5.5}
+                    """))
+        .andExpect(status().isBadRequest())
+        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+        .andExpect(
+            jsonPath(
+                "$.errors[*].field", hasItems("category", "name", "price", "rating", "stock")));
+
+    verifyNoInteractions(productService);
+  }
+
+  @Test
+  void updatesProduct() throws Exception {
+    when(productService.update(eq(7L), any(ProductCommand.class))).thenReturn(view(7L));
+
+    mockMvc
+        .perform(put("/api/products/7").contentType(MediaType.APPLICATION_JSON).content(VALID_BODY))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id").value(7));
+  }
+
+  @Test
+  void returnsNotFoundWhenUpdatingUnknownProduct() throws Exception {
+    when(productService.update(eq(99L), any(ProductCommand.class)))
+        .thenThrow(new ResourceNotFoundException("Product", 99L));
+
+    mockMvc
+        .perform(
+            put("/api/products/99").contentType(MediaType.APPLICATION_JSON).content(VALID_BODY))
+        .andExpect(status().isNotFound());
+  }
+
+  @Test
+  void deletesProduct() throws Exception {
+    mockMvc.perform(delete("/api/products/7")).andExpect(status().isNoContent());
+
+    verify(productService).delete(7L);
+  }
+
+  @Test
+  void returnsNotFoundWhenDeletingUnknownProduct() throws Exception {
+    doThrow(new ResourceNotFoundException("Product", 99L)).when(productService).delete(99L);
+
+    mockMvc.perform(delete("/api/products/99")).andExpect(status().isNotFound());
   }
 
   private static ProductView view(Long id) {

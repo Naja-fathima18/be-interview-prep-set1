@@ -3,6 +3,7 @@ package com.example.beinterviewprep.product.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.example.beinterviewprep.TestcontainersConfiguration;
+import com.example.beinterviewprep.common.config.ClockConfig;
 import com.example.beinterviewprep.product.domain.Category;
 import com.example.beinterviewprep.product.domain.Product;
 import com.example.beinterviewprep.product.persistence.ProductRepository;
@@ -21,7 +22,7 @@ import org.springframework.data.domain.Sort;
 
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@Import({TestcontainersConfiguration.class, ProductService.class})
+@Import({TestcontainersConfiguration.class, ClockConfig.class, ProductService.class})
 class ProductServiceListTest {
 
   private static final Instant CREATED_AT = Instant.parse("2026-10-07T09:00:00Z");
