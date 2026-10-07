@@ -25,3 +25,6 @@ app:
       secret: ${JWT_SECRET}
       ttl: ${JWT_TTL:PT15M}
       issuer: be-interview-prep
+    admin:
+      email: ${ADMIN_EMAIL:}
+      password: ${ADMIN_PASSWORD:}

@@ -19,6 +19,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -101,5 +102,32 @@ class UserServiceTest {
 
     assertThat(userService.list(pageable)).isEmpty();
     verify(userRepository).findAll(pageable);
+  }
+
+  @Test
+  void createsAdminAccountWhenEmailIsFree() {
+    when(passwordEncoder.encode("admin-password")).thenReturn("hashed-admin-password");
+    when(userRepository.saveAndFlush(any(User.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+
+    boolean created = userService.createAdminIfAbsent("Admin@Example.com", "admin-password");
+
+    assertThat(created).isTrue();
+    ArgumentCaptor<User> saved = ArgumentCaptor.forClass(User.class);
+    verify(userRepository).saveAndFlush(saved.capture());
+    assertThat(saved.getValue().getEmail()).isEqualTo("admin@example.com");
+    assertThat(saved.getValue().getRole()).isEqualTo(Role.ADMIN);
+    assertThat(saved.getValue().getPasswordHash()).isEqualTo("hashed-admin-password");
+  }
+
+  @Test
+  void leavesExistingAccountUntouchedWhenBootstrappingAdmin() {
+    when(userRepository.existsByEmail("admin@example.com")).thenReturn(true);
+
+    boolean created = userService.createAdminIfAbsent("admin@example.com", "admin-password");
+
+    assertThat(created).isFalse();
+    verify(userRepository, never()).saveAndFlush(any(User.class));
+    verify(passwordEncoder, never()).encode(any());
   }
 }

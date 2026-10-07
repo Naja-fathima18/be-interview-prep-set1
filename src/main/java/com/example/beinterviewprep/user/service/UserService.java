@@ -33,6 +33,16 @@ public class UserService {
     return create(email, password, Role.USER);
   }
 
+  @Transactional
+  public boolean createAdminIfAbsent(String email, String password) {
+    if (userRepository.existsByEmail(User.normalizeEmail(email))) {
+      log.info("Admin bootstrap skipped; an account with the configured email already exists");
+      return false;
+    }
+    create(email, password, Role.ADMIN);
+    return true;
+  }
+
   public User get(Long id) {
     return userRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("User", id));
   }
