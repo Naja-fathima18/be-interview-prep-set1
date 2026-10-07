@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -15,6 +16,8 @@ import org.springframework.security.web.SecurityFilterChain;
 @Configuration
 @Import(JwtConfig.class)
 public class SecurityConfig {
+
+  static final String SHORT_LINK_REDIRECT = "/{code:[A-Za-z0-9]{1,8}}";
 
   @Bean
   public SecurityFilterChain securityFilterChain(
@@ -38,6 +41,8 @@ public class SecurityConfig {
             requests ->
                 requests
                     .requestMatchers("/api/auth/**", "/error")
+                    .permitAll()
+                    .requestMatchers(HttpMethod.GET, SHORT_LINK_REDIRECT)
                     .permitAll()
                     .requestMatchers("/api/users")
                     .hasRole("ADMIN")
