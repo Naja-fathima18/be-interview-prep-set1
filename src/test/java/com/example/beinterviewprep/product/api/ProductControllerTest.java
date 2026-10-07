@@ -38,13 +38,14 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithAnonymousUser;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(ProductController.class)
 @Import({SecurityConfig.class, ClockConfig.class})
-@WithMockUser
+@WithMockUser(roles = "ADMIN")
 class ProductControllerTest {
 
   private static final Instant CREATED_AT = Instant.parse("2026-10-07T09:00:00Z");
@@ -254,6 +255,39 @@ class ProductControllerTest {
     doThrow(new ResourceNotFoundException("Product", 99L)).when(productService).delete(99L);
 
     mockMvc.perform(delete("/api/products/99")).andExpect(status().isNotFound());
+  }
+
+  @Test
+  @WithAnonymousUser
+  void letsAnonymousVisitorsBrowseTheCatalog() throws Exception {
+    when(productService.list(any(ProductFilter.class), any(Pageable.class)))
+        .thenReturn(new PageImpl<>(List.of()));
+    when(productService.get(7L)).thenReturn(view(7L));
+
+    mockMvc.perform(get("/api/products")).andExpect(status().isOk());
+    mockMvc.perform(get("/api/products/7")).andExpect(status().isOk());
+  }
+
+  @Test
+  @WithAnonymousUser
+  void requiresAuthenticationToChangeProducts() throws Exception {
+    mockMvc
+        .perform(post("/api/products").contentType(MediaType.APPLICATION_JSON).content(VALID_BODY))
+        .andExpect(status().isUnauthorized())
+        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON));
+
+    verifyNoInteractions(productService);
+  }
+
+  @Test
+  @WithMockUser
+  void forbidsNonAdminsFromChangingProducts() throws Exception {
+    mockMvc
+        .perform(put("/api/products/7").contentType(MediaType.APPLICATION_JSON).content(VALID_BODY))
+        .andExpect(status().isForbidden());
+    mockMvc.perform(delete("/api/products/7")).andExpect(status().isForbidden());
+
+    verifyNoInteractions(productService);
   }
 
   private static ProductView view(Long id) {
