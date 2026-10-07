@@ -8,12 +8,14 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.example.beinterviewprep.common.error.ConflictException;
+import com.example.beinterviewprep.common.error.ResourceNotFoundException;
 import com.example.beinterviewprep.user.domain.Role;
 import com.example.beinterviewprep.user.domain.User;
 import com.example.beinterviewprep.user.persistence.UserRepository;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -70,5 +72,22 @@ class UserServiceTest {
 
     assertThatThrownBy(() -> userService.register("alice@example.com", "correct-horse"))
         .isInstanceOf(ConflictException.class);
+  }
+
+  @Test
+  void returnsUserById() {
+    User user = new User("alice@example.com", "hash", Role.USER, NOW);
+    when(userRepository.findById(5L)).thenReturn(Optional.of(user));
+
+    assertThat(userService.get(5L)).isSameAs(user);
+  }
+
+  @Test
+  void throwsNotFoundWhenUserIsMissing() {
+    when(userRepository.findById(5L)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> userService.get(5L))
+        .isInstanceOf(ResourceNotFoundException.class)
+        .hasMessage("User with id 5 was not found");
   }
 }

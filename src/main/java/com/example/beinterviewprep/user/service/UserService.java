@@ -1,6 +1,7 @@
 package com.example.beinterviewprep.user.service;
 
 import com.example.beinterviewprep.common.error.ConflictException;
+import com.example.beinterviewprep.common.error.ResourceNotFoundException;
 import com.example.beinterviewprep.user.domain.Role;
 import com.example.beinterviewprep.user.domain.User;
 import com.example.beinterviewprep.user.persistence.UserRepository;
@@ -28,6 +29,10 @@ public class UserService {
   @Transactional
   public User register(String email, String password) {
     return create(email, password, Role.USER);
+  }
+
+  public User get(Long id) {
+    return userRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("User", id));
   }
 
   private User create(String email, String password, Role role) {
