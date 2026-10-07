@@ -12,14 +12,65 @@ Backend interview preparation: five progressively larger Spring Boot exercises (
 
 ## Getting started
 
-```bash
-./mvnw -B test                 # unit tests
-./mvnw -B verify               # unit + integration tests (*IT)
-./mvnw spring-boot:run         # start the app on http://localhost:8080
-./mvnw -q spotless:apply       # format code
+### Database
+
+The app uses a locally installed PostgreSQL (no Docker). Create the database once:
+
+```sql
+CREATE DATABASE be_interview_prep;
 ```
 
-On Windows PowerShell use `mvnw.cmd` instead of `./mvnw`.
+Connection settings come from environment variables:
+
+| Variable | Default |
+|---|---|
+| `DB_URL` | `jdbc:postgresql://localhost:5432/be_interview_prep` |
+| `DB_USERNAME` | `postgres` |
+| `DB_PASSWORD` | *(empty)* |
+
+Flyway creates the schema on startup. Tests use an in-memory H2 database in PostgreSQL mode, so they need no database.
+
+### Commands
+
+```bash
+./mvnw -B test                                   # unit and slice tests
+./mvnw -B verify                                 # + integration tests (*IT)
+DB_PASSWORD=<your-password> ./mvnw spring-boot:run   # http://localhost:8080
+./mvnw -q spotless:apply                         # format code
+```
+
+On Windows PowerShell: `$env:DB_PASSWORD="<your-password>"; .\mvnw.cmd spring-boot:run`.
+
+## Task API (Q1)
+
+| Method | Path | Success | Errors |
+|---|---|---|---|
+| `POST` | `/api/tasks` | `201` + `Location` | `400` |
+| `GET` | `/api/tasks?status=TODO&page=0&size=20` | `200` (paged) | `400` |
+| `GET` | `/api/tasks/{id}` | `200` | `404` |
+| `PUT` | `/api/tasks/{id}` | `200` | `400`, `404` |
+| `DELETE` | `/api/tasks/{id}` | `204` | `404` |
+
+Statuses: `TODO`, `IN_PROGRESS`, `DONE`. Title is required (max 100 chars); due date is optional and cannot be in the past.
+
+```bash
+curl -i -X POST localhost:8080/api/tasks -H 'Content-Type: application/json' \
+  -d '{"title":"Write report","description":"Quarterly","dueDate":"2030-01-31"}'
+curl 'localhost:8080/api/tasks?status=TODO'
+```
+
+All errors use RFC 7807 `application/problem+json`:
+
+```json
+{
+  "type": "about:blank",
+  "title": "Invalid request",
+  "status": 400,
+  "detail": "Request validation failed",
+  "instance": "/api/tasks",
+  "errors": [{ "field": "title", "message": "Title is required" }]
+}
+```
 
 ## Project layout
 
@@ -38,7 +89,7 @@ src/main/java/com/example/beinterviewprep
 
 | # | Branch | Topic | PR |
 |---|---|---|---|
-| Q1 | `feature/q1-task-api` | Task API | — |
+| Q1 | `feature/q1-task-api` | Task manager API | — |
 | Q2 | `feature/q2-url-shortener` | URL shortener | — |
 | Q3 | `feature/q3-auth` | Authentication | — |
 | Q4 | `feature/q4-product-catalog` | Product catalog | — |
