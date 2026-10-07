@@ -2,9 +2,9 @@ spring:
   application:
     name: be-interview-prep
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/be_interview_prep}
-    username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:}
+    url: jdbc:h2:mem:testdb;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
   jpa:
     open-in-view: false
     hibernate:
