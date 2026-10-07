@@ -1,0 +1,25 @@
+# Maven
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+bin/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs & local env
+*.log
+.env
+.env.*
+
+# Claude Code harness (local only, never pushed)
+.claude/
+CLAUDE.md
