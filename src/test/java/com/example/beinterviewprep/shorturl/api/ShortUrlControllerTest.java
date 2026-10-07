@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -12,7 +13,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.example.beinterviewprep.common.config.ClockConfig;
 import com.example.beinterviewprep.common.error.ResourceNotFoundException;
+import com.example.beinterviewprep.common.security.SecurityConfig;
 import com.example.beinterviewprep.shorturl.domain.ShortUrl;
 import com.example.beinterviewprep.shorturl.service.ShortUrlProperties;
 import com.example.beinterviewprep.shorturl.service.ShortUrlService;
@@ -24,6 +27,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -32,6 +36,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 
 @WebMvcTest(ShortUrlController.class)
 @EnableConfigurationProperties(ShortUrlProperties.class)
+@Import({SecurityConfig.class, ClockConfig.class})
 class ShortUrlControllerTest {
 
   private static final Instant CREATED_AT = Instant.parse("2026-10-07T09:00:00Z");
@@ -167,7 +172,7 @@ class ShortUrlControllerTest {
     when(shortUrlService.get("abc1234")).thenReturn(shortUrl);
 
     mockMvc
-        .perform(get("/api/short-urls/abc1234/stats"))
+        .perform(get("/api/short-urls/abc1234/stats").with(jwt()))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.code").value("abc1234"))
         .andExpect(jsonPath("$.originalUrl").value("https://example.com/a"))
@@ -182,13 +187,40 @@ class ShortUrlControllerTest {
         .thenThrow(new ResourceNotFoundException("Short URL", "missing"));
 
     mockMvc
-        .perform(get("/api/short-urls/missing/stats"))
+        .perform(get("/api/short-urls/missing/stats").with(jwt()))
         .andExpect(status().isNotFound())
         .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
         .andExpect(jsonPath("$.detail").value("Short URL with id missing was not found"));
   }
 
+  @Test
+  void rejectsUnauthenticatedShortenRequestWithProblemJson() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/short-urls")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"url\": \"https://example.com/a\"}"))
+        .andExpect(status().isUnauthorized())
+        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+        .andExpect(jsonPath("$.status").value(401))
+        .andExpect(jsonPath("$.title").value("Unauthorized"))
+        .andExpect(jsonPath("$.instance").value("/api/short-urls"));
+    verifyNoInteractions(shortUrlService);
+  }
+
+  @Test
+  void rejectsUnauthenticatedStatsRequest() throws Exception {
+    mockMvc
+        .perform(get("/api/short-urls/abc1234/stats"))
+        .andExpect(status().isUnauthorized())
+        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON));
+    verifyNoInteractions(shortUrlService);
+  }
+
   private static MockHttpServletRequestBuilder shorten(String body) {
-    return post("/api/short-urls").contentType(MediaType.APPLICATION_JSON).content(body);
+    return post("/api/short-urls")
+        .with(jwt())
+        .contentType(MediaType.APPLICATION_JSON)
+        .content(body);
   }
 }
