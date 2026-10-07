@@ -15,3 +15,10 @@ spring:
         max-page-size: 100
   flyway:
     locations: classpath:db/migration
+
+app:
+  security:
+    jwt:
+      secret: ${JWT_SECRET}
+      ttl: ${JWT_TTL:PT15M}
+      issuer: be-interview-prep

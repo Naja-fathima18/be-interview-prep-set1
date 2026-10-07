@@ -18,7 +18,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.example.beinterviewprep.common.config.ClockConfig;
 import com.example.beinterviewprep.common.error.ResourceNotFoundException;
+import com.example.beinterviewprep.common.security.SecurityConfig;
 import com.example.beinterviewprep.task.domain.Task;
 import com.example.beinterviewprep.task.domain.TaskStatus;
 import com.example.beinterviewprep.task.service.TaskCommand;
@@ -30,18 +32,24 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mapping.PropertyReferenceException;
 import org.springframework.data.util.TypeInformation;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithAnonymousUser;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(TaskController.class)
+@Import({SecurityConfig.class, ClockConfig.class})
+@WithMockUser
 class TaskControllerTest {
 
   private static final Instant CREATED_AT = Instant.parse("2026-10-07T09:00:00Z");
@@ -334,6 +342,32 @@ class TaskControllerTest {
         .andExpect(status().isUnsupportedMediaType())
         .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
         .andExpect(jsonPath("$.status").value(415));
+    verifyNoInteractions(taskService);
+  }
+
+  @Test
+  @WithAnonymousUser
+  void rejectsUnauthenticatedRequestWithProblemJson() throws Exception {
+    mockMvc
+        .perform(get("/api/tasks"))
+        .andExpect(status().isUnauthorized())
+        .andExpect(header().string(HttpHeaders.WWW_AUTHENTICATE, "Bearer"))
+        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+        .andExpect(jsonPath("$.status").value(401))
+        .andExpect(jsonPath("$.title").value("Unauthorized"))
+        .andExpect(jsonPath("$.detail").value("Authentication is required to access this resource"))
+        .andExpect(jsonPath("$.instance").value("/api/tasks"));
+    verifyNoInteractions(taskService);
+  }
+
+  @Test
+  @WithAnonymousUser
+  void rejectsMalformedBearerTokenWithProblemJson() throws Exception {
+    mockMvc
+        .perform(get("/api/tasks").header(HttpHeaders.AUTHORIZATION, "Bearer not-a-real-token"))
+        .andExpect(status().isUnauthorized())
+        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+        .andExpect(jsonPath("$.detail").value("The access token is invalid or has expired"));
     verifyNoInteractions(taskService);
   }
 
