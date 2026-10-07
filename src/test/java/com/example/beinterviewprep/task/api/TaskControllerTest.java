@@ -10,6 +10,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -302,6 +303,28 @@ class TaskControllerTest {
         .perform(delete("/api/tasks/99"))
         .andExpect(status().isNotFound())
         .andExpect(jsonPath("$.detail").value("Task with id 99 was not found"));
+  }
+
+  @Test
+  void returnsGenericProblemForUnexpectedErrors() throws Exception {
+    when(taskService.get(1L)).thenThrow(new IllegalStateException("connection refused"));
+
+    mockMvc
+        .perform(get("/api/tasks/1"))
+        .andExpect(status().isInternalServerError())
+        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+        .andExpect(jsonPath("$.status").value(500))
+        .andExpect(jsonPath("$.title").value("Internal server error"))
+        .andExpect(jsonPath("$.detail").value("An unexpected error occurred"));
+  }
+
+  @Test
+  void returnsProblemForUnsupportedMethod() throws Exception {
+    mockMvc
+        .perform(patch("/api/tasks/1"))
+        .andExpect(status().isMethodNotAllowed())
+        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+        .andExpect(jsonPath("$.status").value(405));
   }
 
   static Task task(Long id, String title, TaskStatus status, LocalDate dueDate) {
