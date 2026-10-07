@@ -327,6 +327,16 @@ class TaskControllerTest {
         .andExpect(jsonPath("$.status").value(405));
   }
 
+  @Test
+  void returnsProblemForUnsupportedMediaType() throws Exception {
+    mockMvc
+        .perform(post("/api/tasks").contentType(MediaType.TEXT_PLAIN).content("Write report"))
+        .andExpect(status().isUnsupportedMediaType())
+        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+        .andExpect(jsonPath("$.status").value(415));
+    verifyNoInteractions(taskService);
+  }
+
   static Task task(Long id, String title, TaskStatus status, LocalDate dueDate) {
     Task task = new Task(title, "Quarterly", status, dueDate, CREATED_AT);
     ReflectionTestUtils.setField(task, "id", id);
