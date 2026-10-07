@@ -3,12 +3,14 @@ package com.example.beinterviewprep.task.api;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.example.beinterviewprep.common.error.ResourceNotFoundException;
 import com.example.beinterviewprep.task.domain.Task;
 import com.example.beinterviewprep.task.domain.TaskStatus;
 import com.example.beinterviewprep.task.service.TaskCommand;
@@ -124,6 +126,41 @@ class TaskControllerTest {
         .andExpect(status().isBadRequest())
         .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
         .andExpect(jsonPath("$.detail").value("Malformed JSON request"));
+  }
+
+  @Test
+  void returnsTaskById() throws Exception {
+    when(taskService.get(1L)).thenReturn(task(1L, "Write report", TaskStatus.DONE, null));
+
+    mockMvc
+        .perform(get("/api/tasks/1"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id").value(1))
+        .andExpect(jsonPath("$.title").value("Write report"))
+        .andExpect(jsonPath("$.status").value("DONE"));
+  }
+
+  @Test
+  void returnsNotFoundForUnknownTask() throws Exception {
+    when(taskService.get(99L)).thenThrow(new ResourceNotFoundException("Task", 99L));
+
+    mockMvc
+        .perform(get("/api/tasks/99"))
+        .andExpect(status().isNotFound())
+        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+        .andExpect(jsonPath("$.status").value(404))
+        .andExpect(jsonPath("$.title").value("Resource not found"))
+        .andExpect(jsonPath("$.detail").value("Task with id 99 was not found"))
+        .andExpect(jsonPath("$.instance").value("/api/tasks/99"));
+  }
+
+  @Test
+  void rejectsNonNumericTaskId() throws Exception {
+    mockMvc
+        .perform(get("/api/tasks/abc"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.errors[0].field").value("id"))
+        .andExpect(jsonPath("$.errors[0].message").value("Invalid value 'abc'; expected a number"));
   }
 
   static Task task(Long id, String title, TaskStatus status, LocalDate dueDate) {

@@ -1,5 +1,6 @@
 package com.example.beinterviewprep.task.service;
 
+import com.example.beinterviewprep.common.error.ResourceNotFoundException;
 import com.example.beinterviewprep.task.domain.Task;
 import com.example.beinterviewprep.task.domain.TaskStatus;
 import com.example.beinterviewprep.task.persistence.TaskRepository;
@@ -32,5 +33,9 @@ public class TaskService {
     Task saved = taskRepository.save(task);
     log.info("Created task {}", saved.getId());
     return saved;
+  }
+
+  public Task get(Long id) {
+    return taskRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Task", id));
   }
 }

@@ -6,6 +6,8 @@ import jakarta.validation.Valid;
 import java.net.URI;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -28,5 +30,10 @@ public class TaskController {
             .buildAndExpand(task.getId())
             .toUri();
     return ResponseEntity.created(location).body(TaskResponse.from(task));
+  }
+
+  @GetMapping("/{id}")
+  public TaskResponse get(@PathVariable Long id) {
+    return TaskResponse.from(taskService.get(id));
   }
 }

@@ -1,9 +1,11 @@
 package com.example.beinterviewprep.task.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
+import com.example.beinterviewprep.common.error.ResourceNotFoundException;
 import com.example.beinterviewprep.task.domain.Task;
 import com.example.beinterviewprep.task.domain.TaskStatus;
 import com.example.beinterviewprep.task.persistence.TaskRepository;
@@ -11,6 +13,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -54,5 +57,14 @@ class TaskServiceTest {
     Task task = taskService.create(new TaskCommand("Write report", null, null, null));
 
     assertThat(task.getStatus()).isEqualTo(TaskStatus.TODO);
+  }
+
+  @Test
+  void throwsNotFoundWhenTaskIsMissing() {
+    when(taskRepository.findById(42L)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> taskService.get(42L))
+        .isInstanceOf(ResourceNotFoundException.class)
+        .hasMessage("Task with id 42 was not found");
   }
 }

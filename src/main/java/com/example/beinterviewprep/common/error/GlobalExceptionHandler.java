@@ -16,6 +16,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
@@ -24,6 +25,13 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
   static final String ERRORS_PROPERTY = "errors";
+
+  @ExceptionHandler(ResourceNotFoundException.class)
+  public ProblemDetail handleNotFound(ResourceNotFoundException ex) {
+    ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+    problem.setTitle("Resource not found");
+    return problem;
+  }
 
   @Override
   protected ResponseEntity<Object> handleMethodArgumentNotValid(
