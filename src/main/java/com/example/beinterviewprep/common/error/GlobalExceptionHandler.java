@@ -36,6 +36,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     return problem;
   }
 
+  @ExceptionHandler(ShortUrlExpiredException.class)
+  public ProblemDetail handleExpired(ShortUrlExpiredException ex) {
+    ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.GONE, ex.getMessage());
+    problem.setTitle("Resource expired");
+    return problem;
+  }
+
   @ExceptionHandler(Exception.class)
   public ProblemDetail handleUnexpected(Exception ex) {
     log.error("Unexpected error", ex);
