@@ -12,13 +12,17 @@ import com.example.beinterviewprep.common.error.ConflictException;
 import com.example.beinterviewprep.common.security.SecurityConfig;
 import com.example.beinterviewprep.user.domain.Role;
 import com.example.beinterviewprep.user.domain.User;
+import com.example.beinterviewprep.user.service.AccessToken;
+import com.example.beinterviewprep.user.service.AuthService;
 import com.example.beinterviewprep.user.service.UserService;
+import java.time.Duration;
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
@@ -32,6 +36,7 @@ class AuthControllerTest {
   @Autowired private MockMvc mockMvc;
 
   @MockitoBean private UserService userService;
+  @MockitoBean private AuthService authService;
 
   @Test
   void registersUserWithoutAuthenticationAndHidesPassword() throws Exception {
@@ -111,6 +116,54 @@ class AuthControllerTest {
         .andExpect(jsonPath("$.status").value(409))
         .andExpect(jsonPath("$.title").value("Conflict"))
         .andExpect(jsonPath("$.detail").value("An account with this email already exists"));
+  }
+
+  @Test
+  void logsInAndReturnsBearerTokenWithExpiryInSeconds() throws Exception {
+    when(authService.login("alice@example.com", "correct-horse"))
+        .thenReturn(new AccessToken("signed.jwt.token", Duration.ofMinutes(15)));
+
+    mockMvc
+        .perform(
+            post("/api/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\": \"alice@example.com\", \"password\": \"correct-horse\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.accessToken").value("signed.jwt.token"))
+        .andExpect(jsonPath("$.tokenType").value("Bearer"))
+        .andExpect(jsonPath("$.expiresIn").value(900));
+  }
+
+  @Test
+  void rejectsBadCredentialsWithUnauthorizedProblem() throws Exception {
+    when(authService.login("alice@example.com", "wrong-password"))
+        .thenThrow(new BadCredentialsException("Invalid email or password"));
+
+    mockMvc
+        .perform(
+            post("/api/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\": \"alice@example.com\", \"password\": \"wrong-password\"}"))
+        .andExpect(status().isUnauthorized())
+        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+        .andExpect(jsonPath("$.status").value(401))
+        .andExpect(jsonPath("$.title").value("Unauthorized"))
+        .andExpect(jsonPath("$.detail").value("Invalid email or password"))
+        .andExpect(jsonPath("$.instance").value("/api/auth/login"));
+  }
+
+  @Test
+  void rejectsLoginWithoutEmailOrPassword() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\": \" \", \"password\": \"\"}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+        .andExpect(jsonPath("$.errors[0].message").value("Email is required"))
+        .andExpect(jsonPath("$.errors[1].message").value("Password is required"));
+    verifyNoInteractions(authService);
   }
 
   static User user(Long id, String email, Role role) {
